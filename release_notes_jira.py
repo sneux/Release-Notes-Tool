@@ -13,7 +13,7 @@ def get_lists(version: str) -> str:
   url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
   payload = ""
   headers = {
-  'Authorization': 'Basic #'
+  'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'
 }
   response = requests.request("GET", url, headers=headers, data=payload)
   data = json.loads(response.text)          # all of the data inside the JSON file
@@ -59,49 +59,38 @@ def clean_list(a_list):
   new_list = [item for item in a_list if test_string not in item]
   return new_list
 
-# def fill_bg(cell):
+def fill_cell_bg(table, color, index):
+  row = table.rows[0].cells
+  cell = row[index]
+  bg = cell._tc.get_or_add_tcPr()
+  hAlign = OxmlElement("w:shd")
+  hAlign.set(qn("w:fill"), color)
+  bg.append(hAlign)
 
 def make_table(doc, header, a_list):
   table = doc.add_table(rows = 1, cols = 1, style = "Table Grid")
   table_header = table.rows[0].cells
-
-  row = table.rows[0].cells
-  header_cell = row[0]
   table_header[0].text = header
-  h_bg = header_cell._tc.get_or_add_tcPr()
-  hAlign = OxmlElement("w:shd")
-  hAlign.set(qn("w:fill"), "#C00000")
-  h_bg.append(hAlign)
+  cell_bg = fill_cell_bg(table, "#C00000", 0)
   
-  table = doc.add_table(rows = 1, cols = 2, style = "Table Grid")
-  table.allow_autofit = False
-  table.rows[0].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
+  table2 = doc.add_table(rows = 1, cols = 2, style = "Table Grid")
+  table2.allow_autofit = False
+  table2.rows[0].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
 
-  row = table.rows[0].cells
-  cell, cell2 = row[0], row[1]
-
+  row = table2.rows[0].cells
   row[0].text = "ID#"
-  cell_bg = cell._tc.get_or_add_tcPr()
-  tcVAlign = OxmlElement("w:shd")
-  tcVAlign.set(qn("w:fill"), "#262626")
-
+  cell_bg2 = fill_cell_bg(table2, "#262626", 0)
   row[1].text = "Description"
-  cell_bg2 = cell2._tc.get_or_add_tcPr()
-  tcVAlign2 = OxmlElement("w:shd")
-  tcVAlign2.set(qn("w:fill"), "#262626")
-
-  cell_bg.append(tcVAlign)
-  cell_bg2.append(tcVAlign2)
+  cell_bg3 = fill_cell_bg(table2, "#262626", 1)
 
   for id in a_list:
-    row = table.add_row().cells
+    row = table2.add_row().cells
     row[0].text = id[0]
     row[1].text = id[1]
-  for cell in table.columns[1].cells:
+  for cell in table2.columns[1].cells:
       cell.width = Inches(10)
 
   doc.add_page_break()
-
 
 def make_doc(other_list, bug_list):
   #first let's create and format the first page 
