@@ -13,7 +13,7 @@ def get_lists(version: str) -> str:
   url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
   payload = ""
   headers = {
-  'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'
+  'Authorization': 'Basic cA'
 }
   response = requests.request("GET", url, headers=headers, data=payload)
   data = json.loads(response.text)          # all of the data inside the JSON file
