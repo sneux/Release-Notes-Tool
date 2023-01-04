@@ -1,61 +1,79 @@
-import requests
-import json
+import pandas as pd
+from pandas._libs.parsers import STR_NA_VALUES
 from docx import Document
 from docx.enum.table import WD_ROW_HEIGHT_RULE
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Inches, Cm, RGBColor, Pt
 from docx.oxml.ns import qn
 from docx.oxml.shared import OxmlElement, qn
+from docx.enum.table import WD_TABLE_ALIGNMENT
+# method that returns a list of multiples of the same column name 
+# this is a helper function so we can combine multiple release_columns into one 
+# THIS METHOD IS CALLED BY THE COMBINE_RELEASE_COLUMNS METHOD DIRECTLY BELOW
+def get_release_columns(file_name):
+    df = pd.read_csv(file_name)                 # create a dataframe from a csv file
+    all_release_columns = list(df.columns.values)      # get a list of data frame column names
 
-def get_lists(version: str) -> str:
-  version = version
-  url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
-  payload = ""
-<<<<<<< HEAD
-  headers = {'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'}
-=======
-  headers = {
-  'Authorization': 'Basic cA'
-}
->>>>>>> da13eb0ffb4bed4f06ad2408dbd64960596d6839
-  response = requests.request("GET", url, headers=headers, data=payload)
-  data = json.loads(response.text)          # all of the data inside the JSON file
-  issues = data['issues']                   # a list of dictionaries containing the info we need
-  bug_list = []
-  other_list = []
+    test_string = "Release Notes"               # substring to search in list
+    release_columns = []                        # new list to store indices containing our substring
+    i = 0                                       
+    list_length = len(all_release_columns)             
 
-  # we have to iterate over the list of dictionaries and manually find the info we need
-  index = 0
-  for item in issues:
-    key = (issues[index]['key'])
-    type = (issues[index]['fields']['issuetype']['name'])
-    
-    # we have to first see if the custom fields exist for the project and if not
-    # we pass the errror it raises to keep iterating 
-    if type == 'Bug':
-      try:
-        release_n = issues[index]['fields']['customfield_10691']
-      except (KeyError):
-        try:
-          release_n = issues[index]['fields']['customfield_10615']
-        except (KeyError):
-          pass 
-      bug_list.append((key,release_n))
-    
-    else:
-      try:
-        release_n = issues[index]['fields']['customfield_10691']
-      except (KeyError):
-        try:
-          release_n = issues[index]['fields']['customfield_10615']
-        except (KeyError):
-          release_n = "N/A"  
-      other_list.append((key,release_n))
-    
-    index += 1
-  return other_list, bug_list
+    # we need to iterate over the list and check if the substring "release notes" is in each item in the list
+    # if there's a match, store the index in the release_columns list
+    while i < list_length:
+        if(all_release_columns[i].find(test_string) != -1):
+            release_columns.append(all_release_columns[i])
+        i += 1
+    return(release_columns)
 
-# we need to get rid of all the "N/A" entries
+# a method to clean and combine columns with the same name and information 
+# returns one Series containing the release notes 
+# THIS METHOD IS CALLED BY COMBINE_DFS COLUMN DIRECTLY BELOW
+def combine_release_columns(file_name):
+    accepted_na_values = STR_NA_VALUES - {'N/A'} | {'_'}    # accept manual "N/A" entries as strings
+                                                            # pandas interprets N/A cells as nan
+    col_names = get_release_columns(file_name)              # list of release notes column names
+
+    # create a new df that replaces all empty cells with string for easier removal later
+    df = pd.read_csv(file_name, keep_default_na=False, na_values=accepted_na_values).fillna('empty space')
+    # we pass our list of column names using list comprehension
+    new_df = pd.concat([df.loc[:, f"{name}"] for name in col_names], ignore_index=False).filter(regex='^((?!empty space).)*$', axis=0)
+    # filter out the empty space cells
+    filtered_s = new_df[~new_df.str.contains('empty space')]
+    
+    return filtered_s
+
+# a method combining our release notes series with our issue type and key dataframe
+def combine_dfs(file_name):
+    release_series = combine_release_columns(file_name)     # a single Series including our combined release notes
+    df2 = pd.read_csv(file_name, usecols=[0,1])              # a datafrane containing only our issue type and issue key
+
+    # merge our release notes into our data frame by index
+    final_df = df2.merge(release_series.rename('Release Notes'), left_index=True, right_index=True)
+
+    return final_df
+
+# a method that returns two lists containing just the issue type and the corresponding release notes
+def get_lists(df):
+    # we use a list of tuples to store the key and the release notes 
+    # we use two different lists because the information stored in each list is 
+    # going to different places
+    bug_list = list()
+    fixed_list = list() 
+
+    # first we need to get the issue type of the project to separate the bugs 
+    for index,row in df.iterrows():
+        issue_type = row[0]                 # store the name of our issue type, key and release notes for easier referencing
+        issue_key = row[1]                  
+        release_note = row[2]
+        if issue_type == 'Bug':
+            bug_list.append([issue_key, release_note])
+        else:
+            fixed_list.append([issue_key, release_note])
+
+    return bug_list, fixed_list
+
 def clean_list(a_list):
   test_string = "N/A"
   new_list = [item for item in a_list if test_string not in item]
@@ -167,13 +185,15 @@ def make_doc(other_list, bug_list):
   ri_desc = doc.add_paragraph('This section identifies issues that have been resolved since the last release of the software.')
   table2 = make_table("Resolved Issues", bug_list)
 
-  doc.save('Release Notes.docx')
+  doc.save('Release Notes CSV.docx')
 
 def main():
-  other_list, bug_list = get_lists("ATT_R3.1")
-  bug_list = clean_list(bug_list)
-  other_list = clean_list(other_list)
-  make_doc(other_list, bug_list)
+    csv_file = '~\Desktop\VAB1.csv'
+    final_df = combine_dfs(csv_file)
+    bugs, fixedR = get_lists(final_df)
+    bug_list = clean_list(bugs)
+    other_list = clean_list(fixedR)
+    make_doc(other_list, bug_list)
 
 if __name__ == "__main__":
     main()
