@@ -3,18 +3,15 @@ import json
 from docx import Document
 from docx.enum.table import WD_ROW_HEIGHT_RULE
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-from docx.shared import Inches, RGBColor
+from docx.shared import Inches, Cm, RGBColor, Pt
 from docx.oxml.ns import qn
 from docx.oxml.shared import OxmlElement, qn
-
 
 def get_lists(version: str) -> str:
   version = version
   url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
   payload = ""
-  headers = {
-  'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'
-}
+  headers = {'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'}
   response = requests.request("GET", url, headers=headers, data=payload)
   data = json.loads(response.text)          # all of the data inside the JSON file
   issues = data['issues']                   # a list of dictionaries containing the info we need
@@ -27,7 +24,6 @@ def get_lists(version: str) -> str:
     key = (issues[index]['key'])
     type = (issues[index]['fields']['issuetype']['name'])
     
-    # because we are searching for multiple custom fields across different projects - 
     # we have to first see if the custom fields exist for the project and if not
     # we pass the errror it raises to keep iterating 
     if type == 'Bug':
@@ -59,6 +55,8 @@ def clean_list(a_list):
   new_list = [item for item in a_list if test_string not in item]
   return new_list
 
+# sets the background of a cell to a specific hex code 
+# the make_table method (directly below) calls this method
 def fill_cell_bg(table, color, index):
   row = table.rows[0].cells
   cell = row[index]
@@ -72,8 +70,10 @@ def make_table(header, a_list):
   table = doc.add_table(rows = 1, cols = 1, style = "Table Grid")
   table_header = table.rows[0].cells
   run = table_header[0].paragraphs[0].add_run(header)
+  run.bold = True
+  table_header[0].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
   cell_bg = fill_cell_bg(table, "#C00000", 0)
-  
+
   # now we create a table for the ID and Description which will automatically 
   # attach to our header table
   table2 = doc.add_table(rows = 1, cols = 2, style = "Table Grid")
@@ -95,8 +95,6 @@ def make_table(header, a_list):
   for cell in table2.columns[1].cells:
       cell.width = Inches(10)
 
-  doc.add_page_break()
-
 def add_header(header):
   section_header = doc.add_heading('')
   section_header.add_run(header).font.color.rgb = RGBColor(0,0,0)
@@ -115,21 +113,21 @@ def make_doc(other_list, bug_list):
   global doc
   doc = Document()
 
+  # set the doc font
+  # NOTE: this doesnt effect header fonts
+  style = doc.styles['Normal']
+  font = style.font
+  font.name = "Times New Roman"
+  font.size = Pt(12)
+
   # create white space so our cover page starts in the middle
-  for x in range(7):
+  for x in range(5):
     p = doc.add_paragraph()
   
   # add our data remote logo
   doc.add_picture('dataremotelogo.png')
   last_paragraph = doc.paragraphs[-1]
   last_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-  # set the doc font to times new roman
-  # NOTE: this doesnt effect header fonts
-  style = doc.styles['Normal']
-  font = style.font
-  font.name = "Times New Roman"
-  p = doc.add_paragraph()
 
   # now lets add the titles to our cover page
   header = add_title("VAB-1")
@@ -146,12 +144,17 @@ def make_doc(other_list, bug_list):
   # make it so the header image doesn't show on the first page
   for section in doc.sections:
     section.different_first_page_header_footer = True
+    section.bottom_margin = Cm(0.5)
+    section.left_margin = Cm(2)
+    section.right_margin = Cm(2)
+
 
   # now we add the software new features section
   new_features_header = add_header("Software New Features")
   nf_desc = doc.add_paragraph('This section identifies new software features on this release.')
   # creating the table
   table = make_table("New Features", other_list)
+  doc.add_page_break()
 
   # and the page with "known issues" table
   resolved_issues_header = add_header("Software Resolved Issues")
@@ -161,7 +164,7 @@ def make_doc(other_list, bug_list):
   doc.save('Release Notes.docx')
 
 def main():
-  bug_list, other_list = get_lists("ATT_R3.1")
+  other_list, bug_list = get_lists("ATT_R3.1")
   bug_list = clean_list(bug_list)
   other_list = clean_list(other_list)
   make_doc(other_list, bug_list)
