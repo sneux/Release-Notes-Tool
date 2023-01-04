@@ -13,7 +13,7 @@ def get_lists(version: str) -> str:
   url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
   payload = ""
   headers = {
-  'Authorization': 'Basic cA'
+  'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'
 }
   response = requests.request("GET", url, headers=headers, data=payload)
   data = json.loads(response.text)          # all of the data inside the JSON file
@@ -103,6 +103,13 @@ def add_header(header):
   rFonts = section_header.style.element.rPr.rFonts
   rFonts.set(qn("w:asciiTheme"), "Times New Roman")
 
+def add_title(title):
+  header = doc.add_heading('', 0)
+  header.add_run(title).font.color.rgb = RGBColor(0,0,0)
+  header.alignment = 1
+  rFonts = header.style.element.rPr.rFonts
+  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
+
 def make_doc(other_list, bug_list):
   #first let's create and format the first page 
   global doc
@@ -125,22 +132,14 @@ def make_doc(other_list, bug_list):
   p = doc.add_paragraph()
 
   # now lets add the titles to our cover page
-  header = doc.add_heading('', 0)
-  header.add_run("VAB-1").font.color.rgb = RGBColor(0,0,0)
-  header.alignment = 1
-  header = doc.add_heading('', 0)
-  header.add_run("<FIRMARE Version>").font.color.rgb = RGBColor(0,0,0)
-  header.alignment = 1
-  header = doc.add_heading('', 0)
-  header.add_run("Release Notes").font.color.rgb = RGBColor(0,0,0)
-  header.alignment = 1
-  rFonts = header.style.element.rPr.rFonts
-  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
+  header = add_title("VAB-1")
+  header2 = add_title("<FIRMWARE Version>")
+  header3 = add_title("Release Notes")
   doc.add_page_break()
 
   # adding the header to each page
-  header = doc.sections[0].header
-  paragraph = header.paragraphs[0]
+  header_img = doc.sections[0].header
+  paragraph = header_img.paragraphs[0]
   logo_header = paragraph.add_run()
   logo_header.add_picture("dataremotelogo.png", width=Inches(3))
 
