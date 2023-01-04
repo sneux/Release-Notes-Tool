@@ -13,7 +13,7 @@ def get_lists(version: str) -> str:
   url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
   payload = ""
   headers = {
-  'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'
+  'Authorization': 'Basic cA'
 }
   response = requests.request("GET", url, headers=headers, data=payload)
   data = json.loads(response.text)          # all of the data inside the JSON file
@@ -67,22 +67,27 @@ def fill_cell_bg(table, color, index):
   hAlign.set(qn("w:fill"), color)
   bg.append(hAlign)
 
-def make_table(doc, header, a_list):
+def make_table(header, a_list):
+  # we have to create a table just for the header 
   table = doc.add_table(rows = 1, cols = 1, style = "Table Grid")
   table_header = table.rows[0].cells
-  table_header[0].text = header
+  run = table_header[0].paragraphs[0].add_run(header)
   cell_bg = fill_cell_bg(table, "#C00000", 0)
   
+  # now we create a table for the ID and Description which will automatically 
+  # attach to our header table
   table2 = doc.add_table(rows = 1, cols = 2, style = "Table Grid")
   table2.allow_autofit = False
   table2.rows[0].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
 
+  # title the ID and Description cells 
   row = table2.rows[0].cells
   row[0].text = "ID#"
   cell_bg2 = fill_cell_bg(table2, "#262626", 0)
   row[1].text = "Description"
   cell_bg3 = fill_cell_bg(table2, "#262626", 1)
 
+  # populate the table with our release notes
   for id in a_list:
     row = table2.add_row().cells
     row[0].text = id[0]
@@ -92,17 +97,34 @@ def make_table(doc, header, a_list):
 
   doc.add_page_break()
 
+def add_header(header):
+  section_header = doc.add_heading('')
+  section_header.add_run(header).font.color.rgb = RGBColor(0,0,0)
+  rFonts = section_header.style.element.rPr.rFonts
+  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
+
 def make_doc(other_list, bug_list):
   #first let's create and format the first page 
+  global doc
   doc = Document()
+
+  # create white space so our cover page starts in the middle
+  for x in range(7):
+    p = doc.add_paragraph()
+  
+  # add our data remote logo
   doc.add_picture('dataremotelogo.png')
   last_paragraph = doc.paragraphs[-1]
   last_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
+  # set the doc font to times new roman
+  # NOTE: this doesnt effect header fonts
   style = doc.styles['Normal']
   font = style.font
   font.name = "Times New Roman"
   p = doc.add_paragraph()
+
+  # now lets add the titles to our cover page
   header = doc.add_heading('', 0)
   header.add_run("VAB-1").font.color.rgb = RGBColor(0,0,0)
   header.alignment = 1
@@ -116,32 +138,26 @@ def make_doc(other_list, bug_list):
   rFonts.set(qn("w:asciiTheme"), "Times New Roman")
   doc.add_page_break()
 
-  # now lets add the header image
+  # adding the header to each page
   header = doc.sections[0].header
   paragraph = header.paragraphs[0]
   logo_header = paragraph.add_run()
   logo_header.add_picture("dataremotelogo.png", width=Inches(3))
 
-  # now we add the software new features section
-  new_features_header = doc.add_heading('')
-  new_features_header.add_run("Release Notes").font.color.rgb = RGBColor(0,0,0)
-  rFonts = new_features_header.style.element.rPr.rFonts
-  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
-  nf_desc = doc.add_paragraph('This section identifies new software features on this release.')
-  # creating the table
-  table = make_table(doc, "New Features", other_list)
-
-  # now the page with "known issues" table
-  resolved_issues_header = doc.add_heading('')
-  resolved_issues_header.add_run("Software Resolved Issues").font.color.rgb = RGBColor(0,0,0)
-  rFonts = resolved_issues_header.style.element.rPr.rFonts
-  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
-  ri_desc = doc.add_paragraph('This section identifies issues that have been resolved since the last release of the software.')
-  table2 = make_table(doc, "Resolved Issues", bug_list)
-
   # make it so the header image doesn't show on the first page
   for section in doc.sections:
     section.different_first_page_header_footer = True
+
+  # now we add the software new features section
+  new_features_header = add_header("Software New Features")
+  nf_desc = doc.add_paragraph('This section identifies new software features on this release.')
+  # creating the table
+  table = make_table("New Features", other_list)
+
+  # and the page with "known issues" table
+  resolved_issues_header = add_header("Software Resolved Issues")
+  ri_desc = doc.add_paragraph('This section identifies issues that have been resolved since the last release of the software.')
+  table2 = make_table("Resolved Issues", bug_list)
 
   doc.save('Release Notes.docx')
 
@@ -153,5 +169,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
