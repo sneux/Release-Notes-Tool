@@ -6,7 +6,7 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Inches, Cm, RGBColor, Pt
 from docx.oxml.ns import qn
 from docx.oxml.shared import OxmlElement, qn
-from docx.enum.table import WD_TABLE_ALIGNMENT
+
 # method that returns a list of multiples of the same column name 
 # this is a helper function so we can combine multiple release_columns into one 
 # THIS METHOD IS CALLED BY THE COMBINE_RELEASE_COLUMNS METHOD DIRECTLY BELOW
@@ -126,19 +126,18 @@ def add_header(header):
   rFonts.set(qn("w:asciiTheme"), "Times New Roman")
 
 def add_title(title):
-  header = doc.add_heading('', 0)
-  header.add_run(title).font.color.rgb = RGBColor(0,0,0)
+  p = doc.add_paragraph()
+  header = doc.add_paragraph('')
+  header_title = header.add_run(title)
+  header_title.font.color.rgb = RGBColor(0,0,0)
   header.alignment = 1
-  rFonts = header.style.element.rPr.rFonts
-  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
+  header_title.font.size = Pt(20)
+  header_title.bold = True
 
 def make_doc(other_list, bug_list):
   #first let's create and format the first page 
   global doc
   doc = Document()
-
-  # set the doc font
-  # NOTE: this doesnt effect header fonts
   style = doc.styles['Normal']
   font = style.font
   font.name = "Times New Roman"
@@ -171,7 +170,6 @@ def make_doc(other_list, bug_list):
     section.bottom_margin = Cm(0.5)
     section.left_margin = Cm(2)
     section.right_margin = Cm(2)
-
 
   # now we add the software new features section
   new_features_header = add_header("Software New Features")

@@ -8,16 +8,14 @@ from docx.oxml.ns import qn
 from docx.oxml.shared import OxmlElement, qn
 
 def get_lists(version: str) -> str:
+  with open("AUTH.json", 'r') as file:
+    contents = json.load(file)
+    user_auth = contents["Authorization"]
+
   version = version
   url = f"http://dataremote.atlassian.net/rest/api/2/search?jql=project in (CXX,VOIP,DEV) AND fixVersion in (\"{version}\" ) ORDER BY project, updated DESC"
   payload = ""
-<<<<<<< HEAD
-  headers = {'Authorization': 'Basic c3JheUBkYXRhcmVtb3RlLmNvbTo4Y2xxSXJkS2NFVEpCNE9Rc3J4WDRCMDA'}
-=======
-  headers = {
-  'Authorization': 'Basic cA'
-}
->>>>>>> da13eb0ffb4bed4f06ad2408dbd64960596d6839
+  headers = {"Authorization": f"Basic {user_auth}"}
   response = requests.request("GET", url, headers=headers, data=payload)
   data = json.loads(response.text)          # all of the data inside the JSON file
   issues = data['issues']                   # a list of dictionaries containing the info we need
@@ -51,7 +49,6 @@ def get_lists(version: str) -> str:
         except (KeyError):
           release_n = "N/A"  
       other_list.append((key,release_n))
-    
     index += 1
   return other_list, bug_list
 
@@ -108,19 +105,18 @@ def add_header(header):
   rFonts.set(qn("w:asciiTheme"), "Times New Roman")
 
 def add_title(title):
-  header = doc.add_heading('', 0)
-  header.add_run(title).font.color.rgb = RGBColor(0,0,0)
+  p = doc.add_paragraph()
+  header = doc.add_paragraph('')
+  header_title = header.add_run(title)
+  header_title.font.color.rgb = RGBColor(0,0,0)
   header.alignment = 1
-  rFonts = header.style.element.rPr.rFonts
-  rFonts.set(qn("w:asciiTheme"), "Times New Roman")
+  header_title.font.size = Pt(20)
+  header_title.bold = True
 
 def make_doc(other_list, bug_list):
   #first let's create and format the first page 
   global doc
   doc = Document()
-
-  # set the doc font
-  # NOTE: this doesnt effect header fonts
   style = doc.styles['Normal']
   font = style.font
   font.name = "Times New Roman"
@@ -153,7 +149,6 @@ def make_doc(other_list, bug_list):
     section.bottom_margin = Cm(0.5)
     section.left_margin = Cm(2)
     section.right_margin = Cm(2)
-
 
   # now we add the software new features section
   new_features_header = add_header("Software New Features")
